@@ -1,0 +1,771 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SynthID Control Hub - Dedicated Admin Panel</title>
+  <style>
+    :root {
+      --red: #d32f2f;
+      --red-hover: #b71c1c;
+      --green: #1b5e20;
+      --green-light: #e8f5e9;
+      --white: #ffffff;
+      --black: #121212;
+      --gray-bg: #f8f9fa;
+      --gray-border: #e2e8f0;
+      --text-muted: #555555;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    }
+
+    body {
+      background-color: var(--white);
+      color: var(--black);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .admin-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 16px 28px;
+      border-bottom: 2px solid var(--black);
+      background-color: var(--white);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+
+    .brand-title {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 1.25rem;
+      font-weight: 800;
+    }
+
+    .btn-red {
+      background-color: var(--red);
+      color: var(--white);
+      border: none;
+      padding: 8px 18px;
+      border-radius: 6px;
+      font-weight: 700;
+      font-size: 0.9rem;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      transition: background 0.2s;
+      text-decoration: none;
+    }
+
+    .btn-red:hover {
+      background-color: var(--red-hover);
+    }
+
+    .btn-outline {
+      background: transparent;
+      color: var(--black);
+      border: 1.5px solid var(--black);
+      padding: 7px 14px;
+      border-radius: 6px;
+      font-weight: 600;
+      font-size: 0.88rem;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    .btn-outline:hover {
+      background: var(--gray-bg);
+    }
+
+    .btn-green {
+      background-color: var(--green);
+      color: var(--white);
+      border: none;
+      padding: 6px 12px;
+      border-radius: 6px;
+      font-weight: 700;
+      font-size: 0.82rem;
+      cursor: pointer;
+    }
+
+    .main-container {
+      max-width: 1140px;
+      width: 100%;
+      margin: 0 auto;
+      padding: 24px 16px 60px;
+      flex: 1;
+    }
+
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 16px;
+      margin-bottom: 28px;
+    }
+
+    .stat-card {
+      background: var(--gray-bg);
+      border: 1.5px solid var(--black);
+      border-radius: 10px;
+      padding: 20px;
+      text-align: left;
+    }
+
+    .stat-card .val {
+      font-size: 1.85rem;
+      font-weight: 900;
+      margin-top: 6px;
+    }
+
+    .stat-card.green-card {
+      border-color: var(--green);
+    }
+    .stat-card.green-card .val {
+      color: var(--green);
+    }
+
+    .tab-bar {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 20px;
+      border-bottom: 2px solid var(--gray-border);
+      padding-bottom: 8px;
+    }
+
+    .tab-btn {
+      background: none;
+      border: none;
+      padding: 10px 18px;
+      font-weight: 700;
+      font-size: 0.95rem;
+      cursor: pointer;
+      color: var(--text-muted);
+      border-radius: 6px;
+    }
+
+    .tab-btn.active {
+      background: var(--black);
+      color: var(--white);
+    }
+
+    .table-card {
+      border: 1.5px solid var(--black);
+      border-radius: 10px;
+      overflow: hidden;
+      background: var(--white);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.04);
+    }
+
+    .table-wrapper {
+      overflow-x: auto;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      text-align: left;
+    }
+
+    th, td {
+      padding: 12px 14px;
+      border-bottom: 1px solid var(--gray-border);
+      font-size: 0.9rem;
+    }
+
+    th {
+      background: var(--gray-bg);
+      font-weight: 800;
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 3px 8px;
+      border-radius: 4px;
+      font-weight: 700;
+      font-size: 0.75rem;
+      text-transform: uppercase;
+    }
+
+    .badge-pending {
+      background: #fff3e0;
+      color: #e65100;
+      border: 1px solid #ffb74d;
+    }
+
+    .badge-approved {
+      background: var(--green-light);
+      color: var(--green);
+      border: 1px solid var(--green);
+    }
+
+    .badge-rejected {
+      background: #ffebee;
+      color: var(--red);
+      border: 1px solid var(--red);
+    }
+
+    .badge-unlimited {
+      background: #ede7f6;
+      color: #4a148c;
+      border: 1px solid #b39ddb;
+    }
+
+    /* মোডাল ডিজাইন */
+    .modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.65);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+      padding: 16px;
+    }
+
+    .modal-box {
+      background: var(--white);
+      max-width: 440px;
+      width: 100%;
+      border-radius: 10px;
+      border: 3px solid var(--red);
+      padding: 24px;
+    }
+
+    .modal-box h3 {
+      font-size: 1.25rem;
+      font-weight: 800;
+      margin-bottom: 10px;
+    }
+
+    .modal-box p {
+      font-size: 0.95rem;
+      line-height: 1.5;
+      color: var(--text-muted);
+      margin-bottom: 20px;
+    }
+
+    .toast-pill {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      background: var(--black);
+      color: var(--white);
+      padding: 12px 20px;
+      border-radius: 30px;
+      font-weight: 600;
+      font-size: 0.9rem;
+      display: none;
+      align-items: center;
+      gap: 10px;
+      z-index: 2000;
+      border-left: 5px solid var(--green);
+    }
+
+    .icon {
+      width: 20px;
+      height: 20px;
+      fill: currentColor;
+      flex-shrink: 0;
+    }
+
+    .hidden {
+      display: none !important;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- কাস্টম মোডাল অ্যালার্ট / কনফার্মেশন -->
+  <div id="adminModal" class="modal-overlay">
+    <div class="modal-box">
+      <h3 id="modalTitle">বিজ্ঞপ্তি</h3>
+      <p id="modalMsg"></p>
+      <div style="display: flex; justify-content: flex-end; gap: 10px;" id="modalActionButtons">
+        <button class="btn-red" onclick="closeAdminModal()">ঠিক আছে</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- কাস্টম টোস্ট -->
+  <div id="toastBox" class="toast-pill">
+    <svg class="icon" style="color:var(--green);" viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
+    <span id="toastText">কার্যকর হয়েছে</span>
+  </div>
+
+  <!-- হেডার -->
+  <header class="admin-header">
+    <div class="brand-title">
+      <!-- লক শিল্ড আইকন -->
+      <svg class="icon" style="width:28px; height:28px; color:var(--red);" viewBox="0 0 24 24">
+        <path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z"/>
+      </svg>
+      Admin Control Hub
+    </div>
+    <div>
+      <button id="adminLogoutBtn" class="btn-outline hidden" onclick="handleAdminLogout()">লগআউট</button>
+    </div>
+  </header>
+
+  <main class="main-container">
+
+    <!-- অ্যাডমিন লগইন ফর্ম (ডিভাইস লক সতর্কতাসহ) -->
+    <section id="adminLoginSection" style="max-width: 420px; margin: 40px auto;">
+      <div style="border: 2px solid var(--black); border-radius: 12px; padding: 26px; background: var(--white);">
+        <h2 style="font-weight: 900; margin-bottom: 8px; text-align: center;">অ্যাডমিন অথেন্টিকেশন</h2>
+        <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 20px; text-align: center; border-left: 3px solid var(--red); padding-left: 8px;">
+          নিরাপত্তা সতর্কতা: প্রথমবার লগইনের পর এই ব্রাউজার/ডিভাইসটি স্থায়ীভাবে লক হয়ে যাবে। অন্য কোনো ডিভাইস থেকে প্রবেশ করা যাবে না।
+        </p>
+
+        <div style="margin-bottom: 14px;">
+          <label style="display:block; font-weight:700; font-size:0.9rem; margin-bottom:6px;">অ্যাডমিন ইউজারনেম</label>
+          <input type="text" id="adminUsername" style="width:100%; padding:10px 12px; border:1.5px solid var(--black); border-radius:6px; font-size:1rem;" placeholder="ইউজারনেম লিখুন">
+        </div>
+
+        <div style="margin-bottom: 20px;">
+          <label style="display:block; font-weight:700; font-size:0.9rem; margin-bottom:6px;">পাসওয়ার্ড</label>
+          <input type="password" id="adminPassword" style="width:100%; padding:10px 12px; border:1.5px solid var(--black); border-radius:6px; font-size:1rem;" placeholder="পাসওয়ার্ড লিখুন">
+        </div>
+
+        <button class="btn-red" style="width:100%; padding:12px;" onclick="executeAdminLogin()">
+          ডিভাইস ভেরিফাই ও লগইন
+        </button>
+      </div>
+    </section>
+
+    <!-- ড্যাশবোর্ড কন্টেন্ট -->
+    <section id="adminDashboardSection" class="hidden">
+      
+      <!-- সামারি কার্ডস -->
+      <div class="stats-grid">
+        <div class="stat-card">
+          <h4>মোট রেজিস্টার্ড ইউজার</h4>
+          <div class="val" id="valTotalUsers">0</div>
+        </div>
+        <div class="stat-card">
+          <h4>পেন্ডিং পেমেন্ট রিকোয়েস্ট</h4>
+          <div class="val" style="color:var(--red);" id="valPendingTrx">0</div>
+        </div>
+        <div class="stat-card green-card">
+          <h4>মোট সংগৃহীত পেমেন্ট</h4>
+          <div class="val" id="valTotalRevenue">0 ৳</div>
+        </div>
+      </div>
+
+      <!-- ট্যাব কন্ট্রোল -->
+      <div class="tab-bar">
+        <button class="tab-btn active" onclick="switchAdminTab('users')">ইউজার ও ব্যালেন্স কন্ট্রোল</button>
+        <button class="tab-btn" onclick="switchAdminTab('pending')">পেন্ডিং পেমেন্ট</button>
+        <button class="tab-btn" onclick="switchAdminTab('history')">পেমেন্ট হিস্ট্রি</button>
+      </div>
+
+      <!-- ট্যাব ১: ইউজার ও ব্যালেন্স তালিকা -->
+      <div id="tabUsers" class="table-card">
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th>আইডি</th>
+                <th>ইউজারনেম</th>
+                <th>যোগদানের তারিখ</th>
+                <th>মোট রিকোয়েস্ট</th>
+                <th>মোট পরিশোধিত টাকা</th>
+                <th>বর্তমান ব্যালেন্স</th>
+                <th>অ্যাকশন</th>
+              </tr>
+            </thead>
+            <tbody id="userTableBody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- ট্যাব ২: পেন্ডিং পেমেন্ট রিকোয়েস্ট -->
+      <div id="tabPending" class="table-card hidden">
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th>আইডি</th>
+                <th>ইউজারনেম</th>
+                <th>প্যাকেজ</th>
+                <th>টাকা</th>
+                <th>সেন্ডার নম্বর</th>
+                <th>TrxID</th>
+                <th>তারিখ</th>
+                <th>অ্যাকশন</th>
+              </tr>
+            </thead>
+            <tbody id="pendingTableBody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- ট্যাব ৩: পেমেন্ট হিস্ট্রি -->
+      <div id="tabHistory" class="table-card hidden">
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th>আইডি</th>
+                <th>ইউজারনেম</th>
+                <th>প্যাকেজ</th>
+                <th>টাকা</th>
+                <th>সেন্ডার নম্বর</th>
+                <th>TrxID</th>
+                <th>স্ট্যাটাস</th>
+                <th>অ্যাকশন</th>
+              </tr>
+            </thead>
+            <tbody id="historyTableBody"></tbody>
+          </table>
+        </div>
+      </div>
+
+    </section>
+
+  </main>
+  <script>
+    /**
+     * SynthID Admin Panel Engine - Hardware Lock & Full Control
+     */
+
+    // আপনার অ্যাডমিন ক্লাউডফ্লেয়ার ওয়ার্কারের লিংক এখানে দিন
+    const ADMIN_WORKER_URL = "https://c2paadmin.mdroni5219.workers.dev";
+
+    // ওয়ার্কার ইন্টারসেপ্টর
+    const nativeFetch = window.fetch;
+    window.fetch = function(resource, init) {
+      if (typeof resource === "string" && resource.startsWith("/api/")) {
+        resource = ADMIN_WORKER_URL + resource;
+      }
+      return nativeFetch(resource, init);
+    };
+
+    let adminToken = localStorage.getItem("admin_auth_token") || null;
+    let cachedAdminFingerprint = null;
+
+    // কাস্টম মোডাল কন্ট্রোলার
+    function openModal(title, msg, onConfirm = null) {
+      document.getElementById("modalTitle").innerText = title;
+      document.getElementById("modalMsg").innerText = msg;
+      const btnContainer = document.getElementById("modalActionButtons");
+
+      if (onConfirm) {
+        btnContainer.innerHTML = `
+          <button class="btn-outline" onclick="closeAdminModal()">বাতিল</button>
+          <button class="btn-red" id="confirmModalBtn">নিশ্চিত করুন</button>
+        `;
+        document.getElementById("confirmModalBtn").onclick = () => {
+          closeAdminModal();
+          onConfirm();
+        };
+      } else {
+        btnContainer.innerHTML = `<button class="btn-red" onclick="closeAdminModal()">ঠিক আছে</button>`;
+      }
+
+      document.getElementById("adminModal").style.display = "flex";
+    }
+
+    function closeAdminModal() {
+      document.getElementById("adminModal").style.display = "none";
+    }
+
+    function showToast(text) {
+      const toast = document.getElementById("toastBox");
+      document.getElementById("toastText").innerText = text;
+      toast.style.display = "flex";
+      setTimeout(() => { toast.style.display = "none"; }, 3200);
+    }
+
+    // অ্যাডমিনের হার্ডওয়্যার ফিঙ্গারপ্রিন্ট জেনারেটর (GPU + Core Invariant)
+    async function getAdminDeviceFingerprint() {
+      if (cachedAdminFingerprint) return cachedAdminFingerprint;
+
+      let coreId = localStorage.getItem("__admin_core_lock");
+      if (!coreId) {
+        coreId = 'adm_dev_' + Math.random().toString(36).substring(2, 12) + Date.now().toString(36);
+        localStorage.setItem("__admin_core_lock", coreId);
+      }
+
+      let gpu = "no_webgl";
+      try {
+        const c = document.createElement("canvas");
+        const gl = c.getContext("webgl") || c.getContext("experimental-webgl");
+        if (gl) {
+          const ext = gl.getExtension("WEBGL_debug_renderer_info");
+          if (ext) gpu = gl.getParameter(ext.UNMASKED_RENDERER_WEBGL);
+        }
+      } catch (e) {}
+
+      const dim = Math.max(screen.width, screen.height) + "x" + Math.min(screen.width, screen.height);
+      const entropy = [coreId, gpu, navigator.hardwareConcurrency || "4", dim, screen.colorDepth].join("###");
+      const buffer = new TextEncoder().encode(entropy);
+      const hash = await crypto.subtle.digest("SHA-256", buffer);
+      cachedAdminFingerprint = Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2, "0")).join("");
+      return cachedAdminFingerprint;
+    }
+
+    // অ্যাডমিন লগইন
+    async function executeAdminLogin() {
+      const username = document.getElementById("adminUsername").value.trim();
+      const password = document.getElementById("adminPassword").value.trim();
+
+      if (!username || !password) {
+        openModal("ভুল তথ্য", "ইউজারনেম এবং পাসওয়ার্ড প্রদান করুন।");
+        return;
+      }
+
+      const fingerprint = await getAdminDeviceFingerprint();
+
+      try {
+        const res = await fetch("/api/admin/login", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ username, password, fingerprint })
+        });
+        const data = await res.json();
+
+        if (data.success) {
+          adminToken = data.token;
+          localStorage.setItem("admin_auth_token", adminToken);
+          showToast("অ্যাডমিন লগইন সফল হয়েছে।");
+          checkAuthAndLoad();
+        } else {
+          openModal("প্রবেশাধিকার প্রত্যাখ্যাত", data.message);
+        }
+      } catch (e) {
+        openModal("ত্রুটি", "সার্ভারের সাথে সংযোগ স্থাপন করা যাচ্ছে না।");
+      }
+    }
+
+    function handleAdminLogout() {
+      adminToken = null;
+      localStorage.removeItem("admin_auth_token");
+      document.getElementById("adminDashboardSection").classList.add("hidden");
+      document.getElementById("adminLoginSection").classList.remove("hidden");
+      document.getElementById("adminLogoutBtn").classList.add("hidden");
+      showToast("অ্যাডমিন লগআউট সম্পন্ন হয়েছে।");
+    }
+
+    // ট্যাব সুইচিং
+    function switchAdminTab(tabName) {
+      document.querySelectorAll(".tab-btn").forEach(btn => btn.classList.remove("active"));
+      event.target.classList.add("active");
+
+      document.getElementById("tabUsers").classList.add("hidden");
+      document.getElementById("tabPending").classList.add("hidden");
+      document.getElementById("tabHistory").classList.add("hidden");
+
+      if (tabName === "users") document.getElementById("tabUsers").classList.remove("hidden");
+      if (tabName === "pending") document.getElementById("tabPending").classList.remove("hidden");
+      if (tabName === "history") document.getElementById("tabHistory").classList.remove("hidden");
+    }
+
+    // ডেটা লোড
+    async function loadDashboardData() {
+      try {
+        // ১. ইউজার ওভারভিউ লোড
+        const userRes = await fetch("/api/admin/users-overview", {
+          headers: { "Authorization": "Bearer " + adminToken }
+        });
+        const userData = await userRes.json();
+
+        if (userData.success) {
+          document.getElementById("valTotalUsers").innerText = userData.stats.totalUsers;
+          document.getElementById("valPendingTrx").innerText = userData.stats.pendingTransactions;
+          document.getElementById("valTotalRevenue").innerText = userData.stats.totalRevenue + " ৳";
+
+          renderUsersTable(userData.users);
+        } else {
+          handleAdminLogout();
+          return;
+        }
+
+        // ২. ট্রানজ্যাকশন লোড
+        const trxRes = await fetch("/api/admin/transactions", {
+          headers: { "Authorization": "Bearer " + adminToken }
+        });
+        const trxData = await trxRes.json();
+
+        if (trxData.success) {
+          renderTransactions(trxData.transactions);
+        }
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
+    // ইউজার টেবিল রেন্ডারিং
+    function renderUsersTable(users) {
+      const tbody = document.getElementById("userTableBody");
+      tbody.innerHTML = "";
+
+      users.forEach(u => {
+        const tr = document.createElement("tr");
+        const balanceDisplay = u.is_unlimited 
+          ? `<span class="badge badge-unlimited">Unlimited</span>` 
+          : `<strong>${u.stars}</strong> স্টার`;
+
+        tr.innerHTML = `
+          <td>${u.id}</td>
+          <td><strong>${u.username}</strong></td>
+          <td>${new Date(u.created_at).toLocaleDateString("bn-BD")}</td>
+          <td>${u.total_requests} বার</td>
+          <td>${u.total_paid_amount} ৳</td>
+          <td>${balanceDisplay}</td>
+          <td>
+            <button class="btn-red" style="padding: 4px 10px; font-size: 0.8rem;" onclick="confirmResetBalance(${u.id}, '${u.username}')">
+              ব্যালেন্স শূন্য করুন
+            </button>
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    // ট্রানজ্যাকশন রেন্ডারিং
+    function renderTransactions(transactions) {
+      const pendingTbody = document.getElementById("pendingTableBody");
+      const historyTbody = document.getElementById("historyTableBody");
+      pendingTbody.innerHTML = "";
+      historyTbody.innerHTML = "";
+
+      transactions.forEach(t => {
+        const tr = document.createElement("tr");
+        const planName = t.plan_id === "p1" ? "১০ স্টার (১০৳)" : t.plan_id === "p2" ? "৩০ স্টার (২০৳)" : "আনলিমিটেড (৫০৳)";
+
+        if (t.status === "pending") {
+          tr.innerHTML = `
+            <td>${t.id}</td>
+            <td><strong>${t.username}</strong></td>
+            <td>${planName}</td>
+            <td>${t.amount} ৳</td>
+            <td>${t.sender_number}</td>
+            <td><strong>${t.trx_id}</strong></td>
+            <td>${new Date(t.created_at).toLocaleDateString("bn-BD")}</td>
+            <td style="display:flex; gap:6px;">
+              <button class="btn-green" onclick="handleTransactionAction(${t.id}, 'approve')">পেইড করুন</button>
+              <button class="btn-outline" style="color:var(--red); border-color:var(--red);" onclick="confirmDeleteTransaction(${t.id})">ডিলিট</button>
+            </td>
+          `;
+          pendingTbody.appendChild(tr);
+        } else {
+          const badge = t.status === "approved" 
+            ? `<span class="badge badge-approved">Paid (Approved)</span>` 
+            : `<span class="badge badge-rejected">Rejected</span>`;
+
+          tr.innerHTML = `
+            <td>${t.id}</td>
+            <td><strong>${t.username}</strong></td>
+            <td>${planName}</td>
+            <td>${t.amount} ৳</td>
+            <td>${t.sender_number}</td>
+            <td><strong>${t.trx_id}</strong></td>
+            <td>${badge}</td>
+            <td>
+              <button class="btn-outline" style="color:var(--red); border-color:var(--red); padding:3px 8px; font-size:0.75rem;" onclick="confirmDeleteTransaction(${t.id})">মুছে ফেলুন</button>
+            </td>
+          `;
+          historyTbody.appendChild(tr);
+        }
+      });
+    }
+
+    // অ্যাকশন: ব্যালেন্স শূন্য করা
+    function confirmResetBalance(userId, username) {
+      openModal(
+        "ব্যালেন্স রিসেট নিশ্চিতকরণ", 
+        `আপনি কি নিশ্চিত যে ইউজার '${username}' এর বর্তমান স্টার বা আনলিমিটেড ব্যালেন্স শূন্য (০) করতে চান?`,
+        async () => {
+          const res = await fetch("/api/admin/reset-user-balance", {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "Authorization": "Bearer " + adminToken },
+            body: JSON.stringify({ userId })
+          });
+          const data = await res.json();
+          if (data.success) {
+            showToast(data.message);
+            loadDashboardData();
+          } else {
+            openModal("ব্যর্থ", data.message);
+          }
+        }
+      );
+    }
+
+    // অ্যাকশন: ট্রানজ্যাকশন অনুমোদন
+    async function handleTransactionAction(trxId, action) {
+      try {
+        const res = await fetch("/api/admin/transaction-action", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "Authorization": "Bearer " + adminToken },
+          body: JSON.stringify({ trxId, action })
+        });
+        const data = await res.json();
+        if (data.success) {
+          showToast(data.message);
+          loadDashboardData();
+        } else {
+          openModal("ত্রুটি", data.message);
+        }
+      } catch (e) {
+        openModal("ত্রুটি", "অ্যাকশন সম্পন্ন করা যায়নি।");
+      }
+    }
+
+    // অ্যাকশন: ট্রানজ্যাকশন ডিলিট করা
+    function confirmDeleteTransaction(trxId) {
+      openModal(
+        "ট্রানজ্যাকশন ডিলিট", 
+        "আপনি কি নিশ্চিত যে আপনি এই ট্রানজ্যাকশন রেকর্ডটি স্থায়ীভাবে মুছে ফেলতে চান?",
+        async () => {
+          const res = await fetch("/api/admin/delete-transaction", {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "Authorization": "Bearer " + adminToken },
+            body: JSON.stringify({ trxId })
+          });
+          const data = await res.json();
+          if (data.success) {
+            showToast(data.message);
+            loadDashboardData();
+          } else {
+            openModal("ব্যর্থ", data.message);
+          }
+        }
+      );
+    }
+
+    // পৃষ্ঠা লোড হলে ভেরিফিকেশন
+    function checkAuthAndLoad() {
+      if (adminToken) {
+        document.getElementById("adminLoginSection").classList.add("hidden");
+        document.getElementById("adminDashboardSection").classList.remove("hidden");
+        document.getElementById("adminLogoutBtn").classList.remove("hidden");
+        loadDashboardData();
+      } else {
+        document.getElementById("adminLoginSection").classList.remove("hidden");
+        document.getElementById("adminDashboardSection").classList.add("hidden");
+        document.getElementById("adminLogoutBtn").classList.add("hidden");
+      }
+    }
+
+    window.addEventListener("DOMContentLoaded", () => {
+      checkAuthAndLoad();
+    });
+  </script>
+</body>
+</html>
