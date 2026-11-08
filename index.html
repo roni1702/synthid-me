@@ -36,7 +36,7 @@
       display: flex;
       justify-content: space-between;
       align-items: center;
-      padding: 16px 28px;
+      padding: 16px 24px;
       border-bottom: 2px solid var(--black);
       background-color: var(--white);
       position: sticky;
@@ -56,10 +56,10 @@
       background-color: var(--red);
       color: var(--white);
       border: none;
-      padding: 8px 18px;
+      padding: 8px 16px;
       border-radius: 6px;
       font-weight: 700;
-      font-size: 0.9rem;
+      font-size: 0.88rem;
       cursor: pointer;
       display: inline-flex;
       align-items: center;
@@ -80,7 +80,7 @@
       padding: 7px 14px;
       border-radius: 6px;
       font-weight: 600;
-      font-size: 0.88rem;
+      font-size: 0.85rem;
       cursor: pointer;
       transition: background 0.2s;
     }
@@ -119,7 +119,7 @@
       background: var(--gray-bg);
       border: 1.5px solid var(--black);
       border-radius: 10px;
-      padding: 20px;
+      padding: 18px 20px;
       text-align: left;
     }
 
@@ -142,6 +142,7 @@
       margin-bottom: 20px;
       border-bottom: 2px solid var(--gray-border);
       padding-bottom: 8px;
+      overflow-x: auto;
     }
 
     .tab-btn {
@@ -153,6 +154,7 @@
       cursor: pointer;
       color: var(--text-muted);
       border-radius: 6px;
+      white-space: nowrap;
     }
 
     .tab-btn.active {
@@ -181,7 +183,7 @@
     th, td {
       padding: 12px 14px;
       border-bottom: 1px solid var(--gray-border);
-      font-size: 0.9rem;
+      font-size: 0.88rem;
     }
 
     th {
@@ -222,7 +224,6 @@
       border: 1px solid #b39ddb;
     }
 
-    /* মোডাল ডিজাইন */
     .modal-overlay {
       position: fixed;
       top: 0;
@@ -290,7 +291,7 @@
 </head>
 <body>
 
-  <!-- কাস্টম মোডাল অ্যালার্ট / কনফার্মেশন -->
+  <!-- কাস্টম মোডাল -->
   <div id="adminModal" class="modal-overlay">
     <div class="modal-box">
       <h3 id="modalTitle">বিজ্ঞপ্তি</h3>
@@ -323,7 +324,7 @@
 
   <main class="main-container">
 
-    <!-- অ্যাডমিন লগইন ফর্ম (ডিভাইস লক সতর্কতাসহ) -->
+    <!-- অ্যাডমিন লগইন ফর্ম -->
     <section id="adminLoginSection" style="max-width: 420px; margin: 40px auto;">
       <div style="border: 2px solid var(--black); border-radius: 12px; padding: 26px; background: var(--white);">
         <h2 style="font-weight: 900; margin-bottom: 8px; text-align: center;">অ্যাডমিন অথেন্টিকেশন</h2>
@@ -438,15 +439,14 @@
     </section>
 
   </main>
+
   <script>
     /**
-     * SynthID Admin Panel Engine - Hardware Lock & Full Control
+     * SynthID Admin Panel Controller & Engine
      */
 
-    // আপনার অ্যাডমিন ক্লাউডফ্লেয়ার ওয়ার্কারের লিংক এখানে দিন
-    const ADMIN_WORKER_URL = "https://c2paadmin.mdroni5219.workers.dev";
+    const ADMIN_WORKER_URL = "https://c2paadmin2.mdroni5219.workers.dev"; // আপনার অ্যাডমিন ওয়ার্কার লিংক বসাবেন
 
-    // ওয়ার্কার ইন্টারসেপ্টর
     const nativeFetch = window.fetch;
     window.fetch = function(resource, init) {
       if (typeof resource === "string" && resource.startsWith("/api/")) {
@@ -458,7 +458,6 @@
     let adminToken = localStorage.getItem("admin_auth_token") || null;
     let cachedAdminFingerprint = null;
 
-    // কাস্টম মোডাল কন্ট্রোলার
     function openModal(title, msg, onConfirm = null) {
       document.getElementById("modalTitle").innerText = title;
       document.getElementById("modalMsg").innerText = msg;
@@ -491,7 +490,6 @@
       setTimeout(() => { toast.style.display = "none"; }, 3200);
     }
 
-    // অ্যাডমিনের হার্ডওয়্যার ফিঙ্গারপ্রিন্ট জেনারেটর (GPU + Core Invariant)
     async function getAdminDeviceFingerprint() {
       if (cachedAdminFingerprint) return cachedAdminFingerprint;
 
@@ -503,269 +501,4 @@
 
       let gpu = "no_webgl";
       try {
-        const c = document.createElement("canvas");
-        const gl = c.getContext("webgl") || c.getContext("experimental-webgl");
-        if (gl) {
-          const ext = gl.getExtension("WEBGL_debug_renderer_info");
-          if (ext) gpu = gl.getParameter(ext.UNMASKED_RENDERER_WEBGL);
-        }
-      } catch (e) {}
-
-      const dim = Math.max(screen.width, screen.height) + "x" + Math.min(screen.width, screen.height);
-      const entropy = [coreId, gpu, navigator.hardwareConcurrency || "4", dim, screen.colorDepth].join("###");
-      const buffer = new TextEncoder().encode(entropy);
-      const hash = await crypto.subtle.digest("SHA-256", buffer);
-      cachedAdminFingerprint = Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2, "0")).join("");
-      return cachedAdminFingerprint;
-    }
-
-    // অ্যাডমিন লগইন
-    async function executeAdminLogin() {
-      const username = document.getElementById("adminUsername").value.trim();
-      const password = document.getElementById("adminPassword").value.trim();
-
-      if (!username || !password) {
-        openModal("ভুল তথ্য", "ইউজারনেম এবং পাসওয়ার্ড প্রদান করুন।");
-        return;
-      }
-
-      const fingerprint = await getAdminDeviceFingerprint();
-
-      try {
-        const res = await fetch("/api/admin/login", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ username, password, fingerprint })
-        });
-        const data = await res.json();
-
-        if (data.success) {
-          adminToken = data.token;
-          localStorage.setItem("admin_auth_token", adminToken);
-          showToast("অ্যাডমিন লগইন সফল হয়েছে।");
-          checkAuthAndLoad();
-        } else {
-          openModal("প্রবেশাধিকার প্রত্যাখ্যাত", data.message);
-        }
-      } catch (e) {
-        openModal("ত্রুটি", "সার্ভারের সাথে সংযোগ স্থাপন করা যাচ্ছে না।");
-      }
-    }
-
-    function handleAdminLogout() {
-      adminToken = null;
-      localStorage.removeItem("admin_auth_token");
-      document.getElementById("adminDashboardSection").classList.add("hidden");
-      document.getElementById("adminLoginSection").classList.remove("hidden");
-      document.getElementById("adminLogoutBtn").classList.add("hidden");
-      showToast("অ্যাডমিন লগআউট সম্পন্ন হয়েছে।");
-    }
-
-    // ট্যাব সুইচিং
-    function switchAdminTab(tabName) {
-      document.querySelectorAll(".tab-btn").forEach(btn => btn.classList.remove("active"));
-      event.target.classList.add("active");
-
-      document.getElementById("tabUsers").classList.add("hidden");
-      document.getElementById("tabPending").classList.add("hidden");
-      document.getElementById("tabHistory").classList.add("hidden");
-
-      if (tabName === "users") document.getElementById("tabUsers").classList.remove("hidden");
-      if (tabName === "pending") document.getElementById("tabPending").classList.remove("hidden");
-      if (tabName === "history") document.getElementById("tabHistory").classList.remove("hidden");
-    }
-
-    // ডেটা লোড
-    async function loadDashboardData() {
-      try {
-        // ১. ইউজার ওভারভিউ লোড
-        const userRes = await fetch("/api/admin/users-overview", {
-          headers: { "Authorization": "Bearer " + adminToken }
-        });
-        const userData = await userRes.json();
-
-        if (userData.success) {
-          document.getElementById("valTotalUsers").innerText = userData.stats.totalUsers;
-          document.getElementById("valPendingTrx").innerText = userData.stats.pendingTransactions;
-          document.getElementById("valTotalRevenue").innerText = userData.stats.totalRevenue + " ৳";
-
-          renderUsersTable(userData.users);
-        } else {
-          handleAdminLogout();
-          return;
-        }
-
-        // ২. ট্রানজ্যাকশন লোড
-        const trxRes = await fetch("/api/admin/transactions", {
-          headers: { "Authorization": "Bearer " + adminToken }
-        });
-        const trxData = await trxRes.json();
-
-        if (trxData.success) {
-          renderTransactions(trxData.transactions);
-        }
-      } catch (e) {
-        console.error(e);
-      }
-    }
-
-    // ইউজার টেবিল রেন্ডারিং
-    function renderUsersTable(users) {
-      const tbody = document.getElementById("userTableBody");
-      tbody.innerHTML = "";
-
-      users.forEach(u => {
-        const tr = document.createElement("tr");
-        const balanceDisplay = u.is_unlimited 
-          ? `<span class="badge badge-unlimited">Unlimited</span>` 
-          : `<strong>${u.stars}</strong> স্টার`;
-
-        tr.innerHTML = `
-          <td>${u.id}</td>
-          <td><strong>${u.username}</strong></td>
-          <td>${new Date(u.created_at).toLocaleDateString("bn-BD")}</td>
-          <td>${u.total_requests} বার</td>
-          <td>${u.total_paid_amount} ৳</td>
-          <td>${balanceDisplay}</td>
-          <td>
-            <button class="btn-red" style="padding: 4px 10px; font-size: 0.8rem;" onclick="confirmResetBalance(${u.id}, '${u.username}')">
-              ব্যালেন্স শূন্য করুন
-            </button>
-          </td>
-        `;
-        tbody.appendChild(tr);
-      });
-    }
-
-    // ট্রানজ্যাকশন রেন্ডারিং
-    function renderTransactions(transactions) {
-      const pendingTbody = document.getElementById("pendingTableBody");
-      const historyTbody = document.getElementById("historyTableBody");
-      pendingTbody.innerHTML = "";
-      historyTbody.innerHTML = "";
-
-      transactions.forEach(t => {
-        const tr = document.createElement("tr");
-        const planName = t.plan_id === "p1" ? "১০ স্টার (১০৳)" : t.plan_id === "p2" ? "৩০ স্টার (২০৳)" : "আনলিমিটেড (৫০৳)";
-
-        if (t.status === "pending") {
-          tr.innerHTML = `
-            <td>${t.id}</td>
-            <td><strong>${t.username}</strong></td>
-            <td>${planName}</td>
-            <td>${t.amount} ৳</td>
-            <td>${t.sender_number}</td>
-            <td><strong>${t.trx_id}</strong></td>
-            <td>${new Date(t.created_at).toLocaleDateString("bn-BD")}</td>
-            <td style="display:flex; gap:6px;">
-              <button class="btn-green" onclick="handleTransactionAction(${t.id}, 'approve')">পেইড করুন</button>
-              <button class="btn-outline" style="color:var(--red); border-color:var(--red);" onclick="confirmDeleteTransaction(${t.id})">ডিলিট</button>
-            </td>
-          `;
-          pendingTbody.appendChild(tr);
-        } else {
-          const badge = t.status === "approved" 
-            ? `<span class="badge badge-approved">Paid (Approved)</span>` 
-            : `<span class="badge badge-rejected">Rejected</span>`;
-
-          tr.innerHTML = `
-            <td>${t.id}</td>
-            <td><strong>${t.username}</strong></td>
-            <td>${planName}</td>
-            <td>${t.amount} ৳</td>
-            <td>${t.sender_number}</td>
-            <td><strong>${t.trx_id}</strong></td>
-            <td>${badge}</td>
-            <td>
-              <button class="btn-outline" style="color:var(--red); border-color:var(--red); padding:3px 8px; font-size:0.75rem;" onclick="confirmDeleteTransaction(${t.id})">মুছে ফেলুন</button>
-            </td>
-          `;
-          historyTbody.appendChild(tr);
-        }
-      });
-    }
-
-    // অ্যাকশন: ব্যালেন্স শূন্য করা
-    function confirmResetBalance(userId, username) {
-      openModal(
-        "ব্যালেন্স রিসেট নিশ্চিতকরণ", 
-        `আপনি কি নিশ্চিত যে ইউজার '${username}' এর বর্তমান স্টার বা আনলিমিটেড ব্যালেন্স শূন্য (০) করতে চান?`,
-        async () => {
-          const res = await fetch("/api/admin/reset-user-balance", {
-            method: "POST",
-            headers: { "Content-Type": "application/json", "Authorization": "Bearer " + adminToken },
-            body: JSON.stringify({ userId })
-          });
-          const data = await res.json();
-          if (data.success) {
-            showToast(data.message);
-            loadDashboardData();
-          } else {
-            openModal("ব্যর্থ", data.message);
-          }
-        }
-      );
-    }
-
-    // অ্যাকশন: ট্রানজ্যাকশন অনুমোদন
-    async function handleTransactionAction(trxId, action) {
-      try {
-        const res = await fetch("/api/admin/transaction-action", {
-          method: "POST",
-          headers: { "Content-Type": "application/json", "Authorization": "Bearer " + adminToken },
-          body: JSON.stringify({ trxId, action })
-        });
-        const data = await res.json();
-        if (data.success) {
-          showToast(data.message);
-          loadDashboardData();
-        } else {
-          openModal("ত্রুটি", data.message);
-        }
-      } catch (e) {
-        openModal("ত্রুটি", "অ্যাকশন সম্পন্ন করা যায়নি।");
-      }
-    }
-
-    // অ্যাকশন: ট্রানজ্যাকশন ডিলিট করা
-    function confirmDeleteTransaction(trxId) {
-      openModal(
-        "ট্রানজ্যাকশন ডিলিট", 
-        "আপনি কি নিশ্চিত যে আপনি এই ট্রানজ্যাকশন রেকর্ডটি স্থায়ীভাবে মুছে ফেলতে চান?",
-        async () => {
-          const res = await fetch("/api/admin/delete-transaction", {
-            method: "POST",
-            headers: { "Content-Type": "application/json", "Authorization": "Bearer " + adminToken },
-            body: JSON.stringify({ trxId })
-          });
-          const data = await res.json();
-          if (data.success) {
-            showToast(data.message);
-            loadDashboardData();
-          } else {
-            openModal("ব্যর্থ", data.message);
-          }
-        }
-      );
-    }
-
-    // পৃষ্ঠা লোড হলে ভেরিফিকেশন
-    function checkAuthAndLoad() {
-      if (adminToken) {
-        document.getElementById("adminLoginSection").classList.add("hidden");
-        document.getElementById("adminDashboardSection").classList.remove("hidden");
-        document.getElementById("adminLogoutBtn").classList.remove("hidden");
-        loadDashboardData();
-      } else {
-        document.getElementById("adminLoginSection").classList.remove("hidden");
-        document.getElementById("adminDashboardSection").classList.add("hidden");
-        document.getElementById("adminLogoutBtn").classList.add("hidden");
-      }
-    }
-
-    window.addEventListener("DOMContentLoaded", () => {
-      checkAuthAndLoad();
-    });
-  </script>
-</body>
-</html>
+        const c = docum
