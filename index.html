@@ -501,4 +501,271 @@
 
       let gpu = "no_webgl";
       try {
-        const c = docum
+        const c = document.createElement("canvas");
+        const gl = c.getContext("webgl") || c.getContext("experimental-webgl");
+        if (gl) {
+          const ext = gl.getExtension("WEBGL_debug_renderer_info");
+          if (ext) gpu = gl.getParameter(ext.UNMASKED_RENDERER_WEBGL);
+        }
+      } catch (e) {}
+
+      const dim = Math.max(screen.width, screen.height) + "x" + Math.min(screen.width, screen.height);
+      const entropy = [coreId, gpu, navigator.hardwareConcurrency || "4", dim, screen.colorDepth].join("###");
+      const buffer = new TextEncoder().encode(entropy);
+      const hash = await crypto.subtle.digest("SHA-256", buffer);
+      cachedAdminFingerprint = Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2, "0")).join("");
+      return cachedAdminFingerprint;
+    }
+
+    async function executeAdminLogin() {
+      const username = document.getElementById("adminUsername").value.trim();
+      const password = document.getElementById("adminPassword").value.trim();
+
+      if (!username || !password) {
+        openModal("ভুল তথ্য", "ইউজারনেম এবং পাসওয়ার্ড প্রদান করুন।");
+        return;
+      }
+
+      const fingerprint = await getAdminDeviceFingerprint();
+
+      try {
+        const res = await fetch("/api/admin/login", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ username, password, fingerprint })
+        });
+        const data = await res.json();
+
+        if (data.success) {
+          adminToken = data.token;
+          localStorage.setItem("admin_auth_token", adminToken);
+          showToast("অ্যাডমিন লগইন সফল হয়েছে।");
+          checkAuthAndLoad();
+        } else {
+          openModal("প্রবেশাধিকার প্রত্যাখ্যাত", data.message);
+        }
+      } catch (e) {
+        openModal("ত্রুটি", "সার্ভারের সাথে সংযোগ স্থাপন করা যাচ্ছে না।");
+      }
+    }
+
+    function handleAdminLogout() {
+      adminToken = null;
+      localStorage.removeItem("admin_auth_token");
+      document.getElementById("adminDashboardSection").classList.add("hidden");
+      document.getElementById("adminLoginSection").classList.remove("hidden");
+      document.getElementById("adminLogoutBtn").classList.add("hidden");
+      showToast("অ্যাডমিন লগআউট সম্পন্ন হয়েছে।");
+    }
+
+    function switchAdminTab(tabName) {
+      document.querySelectorAll(".tab-btn").forEach(btn => btn.classList.remove("active"));
+      event.target.classList.add("active");
+
+      document.getElementById("tabUsers").classList.add("hidden");
+      document.getElementById("tabPending").classList.add("hidden");
+      document.getElementById("tabHistory").classList.add("hidden");
+
+      if (tabName === "users") document.getElementById("tabUsers").classList.remove("hidden");
+      if (tabName === "pending") document.getElementById("tabPending").classList.remove("hidden");
+      if (tabName === "history") document.getElementById("tabHistory").classList.remove("hidden");
+    }
+
+    async function loadDashboardData() {
+      try {
+        const userRes = await fetch("/api/admin/users-overview", {
+          headers: { "Authorization": "Bearer " + adminToken }
+        });
+        const userData = await userRes.json();
+
+        if (userData.success) {
+          document.getElementById("valTotalUsers").innerText = userData.stats.totalUsers;
+          document.getElementById("valPendingTrx").innerText = userData.stats.pendingTransactions;
+          document.getElementById("valTotalRevenue").innerText = userData.stats.totalRevenue + " ৳";
+
+          renderUsersTable(userData.users);
+        } else {
+          handleAdminLogout();
+          return;
+        }
+
+        const trxRes = await fetch("/api/admin/transactions", {
+          headers: { "Authorization": "Bearer " + adminToken }
+        });
+        const trxData = await trxRes.json();
+
+        if (trxData.success) {
+          renderTransactions(trxData.transactions);
+        }
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
+    function renderUsersTable(users) {
+      const tbody = document.getElementById("userTableBody");
+      tbody.innerHTML = "";
+      const now = new Date().toISOString();
+
+      users.forEach(u => {
+        const tr = document.createElement("tr");
+        let balanceDisplay = `<strong>${u.stars}</strong> স্টার`;
+
+        if (u.is_unlimited === 1) {
+          balanceDisplay = `<span class="badge badge-unlimited">Unlimited</span>`;
+        } else if (u.unlimited_until && u.unlimited_until > now) {
+          const expDate = new Date(u.unlimited_until).toLocaleDateString("bn-BD");
+          balanceDisplay = `<span class="badge badge-unlimited">মেয়াদ: ${expDate}</span>`;
+        }
+
+        tr.innerHTML = `
+          <td>${u.id}</td>
+          <td><strong>${u.username}</strong></td>
+          <td>${new Date(u.created_at).toLocaleDateString("bn-BD")}</td>
+          <td>${u.total_requests} বার</td>
+          <td>${u.total_paid_amount} ৳</td>
+          <td>${balanceDisplay}</td>
+          <td>
+            <button class="btn-red" style="padding: 4px 10px; font-size: 0.8rem;" onclick="confirmResetBalance(${u.id}, '${u.username}')">
+              ব্যালেন্স শূন্য করুন
+            </button>
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    function renderTransactions(transactions) {
+      const pendingTbody = document.getElementById("pendingTableBody");
+      const historyTbody = document.getElementById("historyTableBody");
+      pendingTbody.innerHTML = "";
+      historyTbody.innerHTML = "";
+
+      const planMap = {
+        "p1": "১৫ স্টার (২০৳)",
+        "p2": "৪৫ স্টার (৫০৳)",
+        "p3": "১০০ স্টার (৯৯৳)",
+        "p4": "৩০ দিন আনলিমিটেড (১৯৯৳)"
+      };
+
+      transactions.forEach(t => {
+        const tr = document.createElement("tr");
+        const planName = planMap[t.plan_id] || t.plan_id;
+
+        if (t.status === "pending") {
+          tr.innerHTML = `
+            <td>${t.id}</td>
+            <td><strong>${t.username}</strong></td>
+            <td>${planName}</td>
+            <td>${t.amount} ৳</td>
+            <td>${t.sender_number}</td>
+            <td><strong>${t.trx_id}</strong></td>
+            <td>${new Date(t.created_at).toLocaleDateString("bn-BD")}</td>
+            <td style="display:flex; gap:6px;">
+              <button class="btn-green" onclick="handleTransactionAction(${t.id}, 'approve')">পেইড করুন</button>
+              <button class="btn-outline" style="color:var(--red); border-color:var(--red);" onclick="confirmDeleteTransaction(${t.id})">ডিলিট</button>
+            </td>
+          `;
+          pendingTbody.appendChild(tr);
+        } else {
+          const badge = t.status === "approved" 
+            ? `<span class="badge badge-approved">Paid (Approved)</span>` 
+            : `<span class="badge badge-rejected">Rejected</span>`;
+
+          tr.innerHTML = `
+            <td>${t.id}</td>
+            <td><strong>${t.username}</strong></td>
+            <td>${planName}</td>
+            <td>${t.amount} ৳</td>
+            <td>${t.sender_number}</td>
+            <td><strong>${t.trx_id}</strong></td>
+            <td>${badge}</td>
+            <td>
+              <button class="btn-outline" style="color:var(--red); border-color:var(--red); padding:3px 8px; font-size:0.75rem;" onclick="confirmDeleteTransaction(${t.id})">মুছে ফেলুন</button>
+            </td>
+          `;
+          historyTbody.appendChild(tr);
+        }
+      });
+    }
+
+    function confirmResetBalance(userId, username) {
+      openModal(
+        "ব্যালেন্স রিসেট নিশ্চিতকরণ", 
+        `আপনি কি নিশ্চিত যে ইউজার '${username}' এর বর্তমান স্টার বা আনলিমিটেড মেয়াদের ব্যালেন্স সম্পূর্ণ শূন্য (০) করতে চান?`,
+        async () => {
+          const res = await fetch("/api/admin/reset-user-balance", {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "Authorization": "Bearer " + adminToken },
+            body: JSON.stringify({ userId })
+          });
+          const data = await res.json();
+          if (data.success) {
+            showToast(data.message);
+            loadDashboardData();
+          } else {
+            openModal("ব্যর্থ", data.message);
+          }
+        }
+      );
+    }
+
+    async function handleTransactionAction(trxId, action) {
+      try {
+        const res = await fetch("/api/admin/transaction-action", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "Authorization": "Bearer " + adminToken },
+          body: JSON.stringify({ trxId, action })
+        });
+        const data = await res.json();
+        if (data.success) {
+          showToast(data.message);
+          loadDashboardData();
+        } else {
+          openModal("ত্রুটি", data.message);
+        }
+      } catch (e) {
+        openModal("ত্রুটি", "অ্যাকশন সম্পন্ন করা যায়নি।");
+      }
+    }
+
+    function confirmDeleteTransaction(trxId) {
+      openModal(
+        "ট্রানজ্যাকশন ডিলিট", 
+        "আপনি কি নিশ্চিত যে আপনি এই ট্রানজ্যাকশন রেকর্ডটি স্থায়ীভাবে মুছে ফেলতে চান?",
+        async () => {
+          const res = await fetch("/api/admin/delete-transaction", {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "Authorization": "Bearer " + adminToken },
+            body: JSON.stringify({ trxId })
+          });
+          const data = await res.json();
+          if (data.success) {
+            showToast(data.message);
+            loadDashboardData();
+          } else {
+            openModal("ব্যর্থ", data.message);
+          }
+        }
+      );
+    }
+
+    function checkAuthAndLoad() {
+      if (adminToken) {
+        document.getElementById("adminLoginSection").classList.add("hidden");
+        document.getElementById("adminDashboardSection").classList.remove("hidden");
+        document.getElementById("adminLogoutBtn").classList.remove("hidden");
+        loadDashboardData();
+      } else {
+        document.getElementById("adminLoginSection").classList.remove("hidden");
+        document.getElementById("adminDashboardSection").classList.add("hidden");
+        document.getElementById("adminLogoutBtn").classList.add("hidden");
+      }
+    }
+
+    window.addEventListener("DOMContentLoaded", () => {
+      checkAuthAndLoad();
+    });
+  </script>
+</body>
+</html>
